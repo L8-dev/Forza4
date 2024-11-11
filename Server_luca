@@ -1,0 +1,126 @@
+import java.io.*;
+import java.net.*;
+import java.util.*;
+
+public class Server {
+    private static final int PORT = 12345;
+    private static final int ROWS = 6;
+    private static final int COLS = 7;
+    private static char[][] board = new char[ROWS][COLS];  // Griglia di gioco
+    private static boolean gameOver = false;
+    private static int turn = 0;  // 0 per il primo giocatore, 1 per il secondo
+
+    public static void main(String[] args) {
+        // Inizializza la griglia
+        for (int i = 0; i < ROWS; i++) {
+            Arrays.fill(board[i], ' ');
+        }
+
+        try (ServerSocket serverSocket = new ServerSocket(PORT)) {
+            System.out.println("Server in ascolto sulla porta " + PORT);
+
+            while (true) {
+                Socket clientSocket = serverSocket.accept();
+                System.out.println("Nuovo giocatore connesso: " + clientSocket.getInetAddress());
+
+                // Gestisce il client in un nuovo thread
+                new Thread(new GameHandler(clientSocket)).start();
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // Gestisce la logica del gioco per ogni client
+    static class GameHandler implements Runnable {
+        private Socket clientSocket;
+        private PrintWriter out;
+        private BufferedReader in;
+
+        public GameHandler(Socket socket) {
+            this.clientSocket = socket;
+        }
+
+        public void run() {
+            try {
+                in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
+                out = new PrintWriter(clientSocket.getOutputStream(), true);
+
+                // Annuncia il turno del giocatore
+                out.println("OK");
+                out.println("Benvenuto nel gioco Forza 4!");
+                out.println("Sei il giocatore " + (turn % 2 == 0 ? "1" : "2"));
+
+                // Comincia il gioco
+                while (!gameOver) {
+                    out.println("BOARD " + getBoardState());  // Manda lo stato della griglia
+                    out.println("TURNO " + (turn % 2 == 0 ? "1" : "2"));
+                    out.println("Fai la tua mossa (inserisci la colonna):");
+
+                    String move = in.readLine();
+                    if (move.equalsIgnoreCase("QUIT")) {
+                        out.println("Game Over. Hai abbandonato.");
+                        break;
+                    }
+
+                    try {
+                        int column = Integer.parseInt(move);
+                        if (column < 0 || column >= COLS || board[0][column] != ' ') {
+                            out.println("INVALID_MOVE");
+                        } else {
+                            // Inserisce il disco nel posto giusto
+                            for (int row = ROWS - 1; row >= 0; row--) {
+                                if (board[row][column] == ' ') {
+                                    board[row][column] = turn % 2 == 0 ? 'X' : 'O';
+                                    break;
+                                }
+                            }
+
+                            // Invia il messaggio di successo
+                            out.println("SUCCESSFULLY DID MOVE");
+                            out.println("CURRENT_BOARD " + getBoardState());  // Invia lo stato della griglia dopo la mossa
+
+                            if (checkWin()) {
+                                out.println("GAME_OVER");
+                                out.println("Il giocatore " + (turn % 2 == 0 ? "1" : "2") + " ha vinto!");
+                                gameOver = true;
+                            } else {
+                                turn++;  // Passa al turno del prossimo giocatore
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        out.println("Mossa non valida, inserisci un numero di colonna.");
+                    }
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                try {
+                    clientSocket.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
+
+        // Verifica se c'è una vittoria
+        private boolean checkWin() {
+            // Implementazione della logica per verificare vittorie orizzontali, verticali e diagonali
+            // Aggiungi la logica di controllo della vittoria (orizzontale, verticale, diagonale)
+            return false;  // Puoi completarla con la logica per verificare se un giocatore ha vinto
+        }
+
+        // Restituisce lo stato della griglia come stringa
+        private String getBoardState() {
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < ROWS; i++) {
+                for (int j = 0; j < COLS; j++) {
+                    sb.append(board[i][j]).append(" ");
+                }
+                sb.append("\n");
+            }
+            return sb.toString();
+        }
+    }
+}
+
